@@ -5,7 +5,9 @@ Implement the TODO functions. Autograder will test them.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Any
+
+from flask import request
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func
 
@@ -22,12 +24,22 @@ def create_student(name: str, email: str) -> Student:
       - rollback
       - raise ValueError("duplicate email")
     """
-    raise NotImplementedError
+    s=Student(name=name, email=email)
+    db.session.add(s)
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        raise ValueError("email must be unique")
+    return s
 
 
-def find_student_by_email(email: str) -> Optional[Student]:
+def find_student_by_email(email: str) -> ValueError | Any:
     """TODO: Return Student by email or None."""
-    raise NotImplementedError
+    s=Student.query.filter_by(email=email).first()
+    if not s:
+        return None
+    return s
 
 
 def add_grade(student_id: int, assignment_id: int, score: int) -> Grade:
@@ -37,7 +49,20 @@ def add_grade(student_id: int, assignment_id: int, score: int) -> Grade:
     If assignment doesn't exist: raise LookupError
     If duplicate grade: raise ValueError("duplicate grade")
     """
-    raise NotImplementedError
+    s=Student.query.get(student_id)
+    if not s:
+        raise LookupError
+    a=Assignment.query.get(assignment_id)
+    if not a:
+        raise LookupError
+    g=Grade(student_id=student_id, score=score, assignment_id=assignment_id)
+    db.session.add(g)
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        raise ValueError("duplicate grade")
+    return g
 
 
 def average_percent(student_id: int) -> float:
@@ -48,27 +73,56 @@ def average_percent(student_id: int) -> float:
     If student doesn't exist: raise LookupError
     If student has no grades: return 0.0
     """
-    raise NotImplementedError
+    s=Student.query.get(student_id)
+    if not s:
+        raise LookupError
+    g=Grade.query.filter_by(student_id=student_id).all()
+    if not g:
+        return 0.0
+    total_percent = 0.0
+
+    for grade in g:
+        percent = (grade.score / grade.assignment.max_points) * 100
+        total_percent += percent
+
+    return total_percent / len(g)
+
 
 
 # ===== QUERYING & FILTERING =====
 
 def get_all_students() -> list[Student]:
     """TODO: Return all students in database, ordered by name."""
-    raise NotImplementedError
+    s=Student.query.order_by(Student.name).all()
+    return [st for st in s]
+
 
 
 def get_assignment_by_title(title: str) -> Optional[Assignment]:
     """TODO: Return assignment by title or None."""
-    raise NotImplementedError
-
+    a=Assignment.query.filter_by(title=title).first()
+    if not a:
+        return None
+    return a
 
 def get_student_grades(student_id: int) -> list[Grade]:
     """TODO: Return all grades for a student, ordered by assignment title.
 
     If student doesn't exist: raise LookupError
     """
-    raise NotImplementedError
+    s=db.session.get(Student, student_id)
+    if not s:
+        raise LookupError
+    rows=(
+        Grade.query.filter_by(student_id=student_id)
+        .order_by(Grade.assignment).all()
+    )
+    payload=[]
+    for g in rows:
+        g["assignment"] = {"id": g.assignment.id, "title": g.assignment.title, "max_points": g.assignment.max_points}
+        payload.append(g)
+    return payload
+
 
 
 def get_grades_for_assignment(assignment_id: int) -> list[Grade]:

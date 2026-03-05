@@ -149,7 +149,7 @@ def add_grade(student_id: int):
         score_int = int(score)
         assignment_id_int = int(assignment_id)
     except (TypeError, ValueError):
-        return {"error": "score and assignment_id must be integers"}, 400
+        return {"error": "s core and assignment_id must be integers"}, 400
 
     if score_int < 0:
         return {"error": "score must be >= 0"}, 400
