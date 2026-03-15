@@ -110,10 +110,10 @@ def highest_score_on_assignment(assignment_id: int) -> Optional[int]:
 
 def class_average_percent() -> float:
     """Return average percent across all students and all assignments."""
-    # Calculating the average of (score/max_points * 100) for all rows
+    # We use select_from(Grade) to establish the starting point for the join
     avg_val = db.session.query(
         func.avg((Grade.score * 100.0) / Assignment.max_points)
-    ).join(Assignment).scalar()
+    ).select_from(Grade).join(Assignment).scalar()
 
     return float(avg_val) if avg_val is not None else 0.0
 
@@ -148,7 +148,6 @@ def delete_student(student_id: int) -> None:
     if not student:
         raise LookupError
 
-    # Manual deletion of grades if cascade is not set in models
     Grade.query.filter_by(student_id=student_id).delete()
     db.session.delete(student)
     db.session.commit()
@@ -167,7 +166,6 @@ def delete_grade(grade_id: int) -> None:
 
 def students_with_average_above(threshold: float) -> list[Student]:
     """Return students whose average percent is above threshold."""
-    # percent per grade = (score * 100) / max_points
     avg_score_expr = func.avg((Grade.score * 100.0) / Assignment.max_points)
 
     results = db.session.query(Student) \
